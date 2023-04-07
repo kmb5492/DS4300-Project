@@ -28,7 +28,7 @@ def clean_responses(filename):
 
 def invert_score(score, score_range):
     """ Alter scores for questions with responses that are more compatible if they're further apart... """
-    return score_range[::-1][score]
+    return score_range[::-1][score - 1]
 
 
 def score_compatibility(person1, person2, response_relationships, tuning_weights=None):
@@ -50,8 +50,8 @@ def score_compatibility(person1, person2, response_relationships, tuning_weights
     # Compute cosine similarity using song attribute vectors & weights
     cosine_sim = 1 - distance.cosine(responses1, responses2, w=tuning_weights)
 
-    return {'person1_name': person1['name'], 'person1_email': person1['email'],
-            'person2_name': person2['name'], 'person2_email': person2['email'],
+    return {'person1_name': person1['Name'], 'person1_email': person1['Email'],
+            'person2_name': person2['Name'], 'person2_email': person2['Email'],
             'similarity': cosine_sim}
 
 
@@ -113,5 +113,6 @@ if __name__ == "__main__":
     connection = "mongodb+srv://{}:{}@responses.97go3aq.mongodb.net/test"
     class_responses = retrieve_data_mongo(os.environ['MONGO_USER'], os.environ['MONGO_PASSWORD'], connection,
                                           'compatibility', 'responses')
-    compatibilites = score_compatibilities(class_responses, response_relationships=RESPONSE_RELATIONSHIPS,
-                                           tuning_weights=None)
+    compatibilities = score_compatibilities(class_responses, response_relationships=RESPONSE_RELATIONSHIPS,
+                                            tuning_weights=None)
+    print(compatibilities)
