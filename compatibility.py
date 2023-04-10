@@ -24,7 +24,13 @@ def invert_score(score, score_range):
 
 
 def create_tuning(responses1, responses2, weights=None):
-    """ Identify most valued questions and use them to compute a list of uniquely weighted questions """
+    """
+    Identify most valued questions and use them to compute a list of uniquely weighted questions
+    :param responses1: first respondents responses as a list
+    :param responses2: second respondents responses as a list
+    :param weights: initial weights to be given to each question
+    :return: modified tuning weights to be used for compatibility score calculation
+    """
     if not weights:
         weights = [1]*23
 
@@ -75,9 +81,9 @@ def score_compatibilities(responses, **kwargs):
     for i in range(len(responses)):
         for j in range(i + 1, len(responses)):
             # Take most valued compatibility questions to calculate tuning weights
-            tuning_weights = create_tuning(responses[i], responses[j], kwargs.get('initial_weights', None))
+            tuning_weights = create_tuning(responses[i], responses[j], kwargs.get('initial_weights'))
             scores.append(score_compatibility(responses[i], responses[j], tuning_weights,
-                                              kwargs.get('response_relationships', None)))
+                                              kwargs.get('response_relationships')))
 
     return pd.DataFrame(scores)
 
