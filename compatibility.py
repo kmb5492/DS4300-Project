@@ -7,13 +7,36 @@ Compatibility Scoring Algorithm:
 """
 
 import pandas as pd
+import random as rnd
+import copy
 import os
-from questions import QUESTIONS
 from pymongo import MongoClient
 from scipy.spatial import distance
 from functools import reduce
+from questions import QUESTIONS
+from evolution import Evo
 
 RESPONSE_RELATIONSHIPS = [0] + ([1] * 17) + [0, 1, 1, 0, 1]  # 1 = Direct Relationship; 0 = Inverse Relationship
+
+
+# %% MongoDB / Data Conversion
+
+def retrieve_data_mongo(username, password, connection_str, db, collection):
+    """ Connect to MongoDB Cluster and retrieve db/collection data """
+    client = MongoClient(connection_str.format(username, password),
+                         connectTimeoutMS=30000, socketTimeoutMS=None, connect=False, maxPoolsize=1)
+
+    mongo_db = client[db]
+    mongo_collection = mongo_db[collection]
+    return [response for response in mongo_collection.find()]
+
+
+def compatibility_to_csv(matches, csv_name, path=None):
+    """ Convert list of matches to csv readable for Neo4j """
+    if path:
+        output_file = os.path.join(path, csv_name)
+        matches.to_csv(output_file, index=False)
+    matches.to_csv(csv_name, index=False)
 
 
 # %% Helper Funcs: Generate similarity scores for a sample of songs from given CSV
@@ -32,7 +55,7 @@ def create_tuning(responses1, responses2, weights=None):
     :return: modified tuning weights to be used for compatibility score calculation
     """
     if not weights:
-        weights = [1]*23
+        weights = [1] * 23
 
     # Extract responders' most valued questions to compute a unique list of tuning weights
     first_factor1, second_factor1, \
@@ -72,7 +95,7 @@ def score_compatibility(person1, person2, tuning_weights=None, response_relation
 
     return {'person1_name': person1['Name'], 'person1_email': person1['Email'],
             'person2_name': person2['Name'], 'person2_email': person2['Email'],
-            'similarity': cosine_sim}
+            'compatibility': cosine_sim}
 
 
 def score_compatibilities(responses, **kwargs):
@@ -85,54 +108,126 @@ def score_compatibilities(responses, **kwargs):
             scores.append(score_compatibility(responses[i], responses[j], tuning_weights,
                                               kwargs.get('response_relationships')))
 
-    return pd.DataFrame(scores)
+    return scores
 
 
 def closest_scores(compatibility_scores, n):
     """ Return only the n most similar songs """
-    return compatibility_scores.sort_values(by='similarity', ascending=False)[:n]
-
-
-def compatibility_to_csv(matches, csv_name, path=None):
-    """ Convert list of matches to csv readable for Neo4j """
-    if path:
-        output_file = os.path.join(path, csv_name)
-        matches.to_csv(output_file, index=False)
-    matches.to_csv(csv_name, index=False)
+    return compatibility_scores.sort_values(by='compatibility', ascending=False)[:n]
 
 
 # %% Evo Algorithm - Maximize Total Compatibility of Classmates
 
-def evaluate_scores(compatibilities):
-    """ Evaluate total compatibility score of current iteration """
-    return reduce(lambda x, y: x + y['Compatibility'], compatibilities, 0)
+def random_pairing(all_compatibility_scores):
+    """ Generate First Solution: Randomly pair our class up """
+    # Obtain list of all unique people
+    all_people = set([pairing['person2_name'] for pairing in all_compatibility_scores]
+                     + [all_compatibility_scores[0]['person1_name']])
+    selected_people = set()
+    matches = []
+
+    rnd.shuffle(all_compatibility_scores)
+
+    for pairing in all_compatibility_scores:
+        people = [pairing['person1_name'], pairing['person2_name']]
+
+        # Check if any person in the pairing has already been selected
+        if any(person in selected_people for person in people):
+            continue
+
+        # Add the pairing to the matches list and update the selected_people list
+        selected_people.update(people)
+        matches.append(pairing)
+
+        # Check if everyone has been paired up
+        if selected_people == all_people:
+            break
+
+    return matches
 
 
-def switch_partners(all_compatibility_scores):
-    """ Use list of all scores to optimize scores by switching partners """
-    pass
+def find_pairing(name1, name2, all_scores):
+    """ Given two names, find their pairing in list of possible matches """
+    for match in all_scores:
+        if match['person1_name'] == name1 or match['person2_name'] == name1:
+            if match['person1_name'] == name2 or match['person2_name'] == name2:
+                return match
 
 
-def match_making(all_compatibility_scores):
-    """ Evolutionary model to optimize total compatibility score across the class """
-    pass
+def find_worst_pairing(pairings):
+    """ Find the worst compatibility score between pairings """
+    return min(pairings, key=lambda d: d.get("compatibility"))
 
 
-# %% Driver - Calculate compatibility scores and return matches as a CSV file
+def switch_random(pairings, all_scores):
+    """ Change agent: switch pairings at random """
+    # Create deepcopy for our  pairings
+    scores = copy.deepcopy(pairings[0])
 
-def retrieve_data_mongo(username, password, connection_str, db, collection):
-    """ Connect to MongoDB Cluster and retrieve db/collection data """
-    client = MongoClient(connection_str.format(username, password),
-                         connectTimeoutMS=30000, socketTimeoutMS=None, connect=False, maxPoolsize=1)
+    # Take two random pairings and switch their partners
+    first_pairing = rnd.choice(scores)
+    scores.remove(first_pairing)
+    second_pairing = rnd.choice(scores)
+    scores.remove(second_pairing)
 
-    mongo_db = client[db]
-    mongo_collection = mongo_db[collection]
-    return [response for response in mongo_collection.find()]
+    scores.append(find_pairing(first_pairing['person1_name'], second_pairing['person1_name'], all_scores))
+    scores.append(find_pairing(first_pairing['person2_name'], second_pairing['person2_name'], all_scores))
+
+    return scores
 
 
-if __name__ == "__main__":
+def switch_worst_partners(pairings, all_scores):
+    """ Change agent: Switching partners between the least compatible pairs """
+    scores = copy.deepcopy(pairings[0])
+
+    # Take our worst two pairings, remove them, and switch their partners
+    worst_pairing = find_worst_pairing(scores)
+    scores.remove(worst_pairing)
+    second_worst_pairing = find_worst_pairing(scores)
+    scores.remove(second_worst_pairing)
+
+    scores.append(find_pairing(worst_pairing['person1_name'], second_worst_pairing['person1_name'], all_scores))
+    scores.append(find_pairing(worst_pairing['person2_name'], second_worst_pairing['person2_name'], all_scores))
+
+    return scores
+
+
+def evaluate_scores(pairing):
+    """ Fitness Criteria: Evaluate total compatibility score of current iteration """
+    return reduce(lambda x, y: x + y['compatibility'], pairing, 0)
+
+
+# %% Driver - Calculate compatibility scores and convert matches into a CSV file
+
+def main():
+    # Connect to MongoDB and retrieve responses
     connection = "mongodb+srv://{}:{}@responses.97go3aq.mongodb.net/test"
     class_responses = retrieve_data_mongo(os.environ['MONGO_USER'], os.environ['MONGO_PASSWORD'], connection,
                                           'compatibility', 'responses')
-    compatibilities = score_compatibilities(class_responses, response_relationships=RESPONSE_RELATIONSHIPS)
-    compatibility_to_csv(compatibilities, "compatibilities.csv")
+
+    all_pairings = score_compatibilities(class_responses, response_relationships=RESPONSE_RELATIONSHIPS)
+
+    # Create Evo object to maximize compatibility across our dataset
+    optum = Evo(all_pairings)
+
+    # Register fitness criteria and agents
+    optum.add_fitness_criteria("total_compatibility", evaluate_scores)
+
+    optum.add_agent("switch random", switch_random, 1)
+    optum.add_agent('switch worst partners', switch_worst_partners, 1)
+
+    optum.add_solution(random_pairing(all_pairings))
+
+    # Run evolution model
+    optum.evolve(100000, 500, 10000)
+
+
+    # x = []
+    # x.append(random_pairing(all_pairings))
+    # for i in range(1000):
+    #     x.append(switch_random(rnd.choice(x), all_pairings))
+    #     x.append(switch_worst_partners(rnd.choice(x), all_pairings))
+    # print(len(x))
+
+if __name__ == "__main__":
+    main()
