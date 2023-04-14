@@ -2,8 +2,9 @@
 Daniel Xu
 DS4300 - Final Project
 Compatibility Scoring Algorithm:
-    Takes responses to DS Connect survey form and computes a similarity score between each possible match combination.
-    Similarity scores and basic identity info will then be uploaded into Neo4J for further analysis.
+    Takes responses to DS Connect survey and computes similarity score between each possible match combination.
+    Optimize pairings across the class to produce results with the highest total compatibility score.
+    Generate insights for each match and share results with our responders.
 """
 
 import pandas as pd
@@ -16,6 +17,7 @@ from functools import reduce
 from questions import QUESTIONS
 from evolution import Evo
 
+# How responses to questions correlate (i.e. if people answer similarly, is that optimal for compatibility?) :
 RESPONSE_RELATIONSHIPS = [0] + ([1] * 17) + [0, 1, 1, 0, 1]  # 1 = Direct Relationship; 0 = Inverse Relationship
 
 
@@ -39,7 +41,7 @@ def compatibility_to_csv(matches, csv_name, path=None):
     matches.to_csv(csv_name, index=False)
 
 
-# %% Helper Funcs: Generate similarity scores for a sample of songs from given CSV
+# %% Helper Funcs: Generate compatibility scores between all our participants
 
 def invert_score(score, score_range):
     """ Alter scores for questions with responses that are more compatible if they're further apart... """
@@ -49,8 +51,8 @@ def invert_score(score, score_range):
 def create_tuning(responses1, responses2, weights=None):
     """
     Identify most valued questions and use them to compute a list of uniquely weighted questions
-    :param responses1: first respondents responses as a list
-    :param responses2: second respondents responses as a list
+    :param responses1: first respondent's responses as a list
+    :param responses2: second respondent's responses as a list
     :param weights: initial weights to be given to each question
     :return: modified tuning weights to be used for compatibility score calculation
     """
@@ -74,12 +76,12 @@ def create_tuning(responses1, responses2, weights=None):
 
 def score_compatibility(person1, person2, tuning_weights=None, response_relationships=None):
     """
-    Vectorize song attributes given desired tuning params and compute cosine similarity
+    Vectorize responses given desired tuning weights, then compute cosine similarity
     :param person1: First person's responses as a dict
     :param person2: Second person's responses as a dict
     :param response_relationships: List of compatibility relationships for each question (direct/indirect relation)
-    :param tuning_weights: Each response's weight to be factored into scoring
-    :return: Dictionary of the two people's identifying attributes and their similarity score
+    :param tuning_weights: Each responder's question weights to be factored into scoring
+    :return: Dictionary of the two individuals' PII and their similarity score
     """
     if not response_relationships:
         response_relationships = [1] * 23
@@ -90,7 +92,7 @@ def score_compatibility(person1, person2, tuning_weights=None, response_relation
     responses2 = [invert_score(score, range(1, 7)) if response_relationships[i] == 0 else score
                   for i, score in enumerate(responses2)]
 
-    # Compute cosine similarity using song attribute vectors & weights
+    # Compute cosine similarity using response vectors & weights
     cosine_sim = 1 - distance.cosine(responses1, responses2, w=tuning_weights)
 
     return {'person1_name': person1['Name'], 'person1_email': person1['Email'],
@@ -99,7 +101,7 @@ def score_compatibility(person1, person2, tuning_weights=None, response_relation
 
 
 def score_compatibilities(responses, **kwargs):
-    """ Calculate similarity score for each unique pair of songs in song data """
+    """ Calculate compatibility score for each unique pair of individuals """
     scores = []
     for i in range(len(responses)):
         for j in range(i + 1, len(responses)):
@@ -112,7 +114,7 @@ def score_compatibilities(responses, **kwargs):
 
 
 def closest_scores(compatibility_scores, n):
-    """ Return only the n most similar songs """
+    """ Return the n most similar pairings """
     return compatibility_scores.sort_values(by='compatibility', ascending=False)[:n]
 
 
@@ -216,10 +218,11 @@ def main():
     optum.add_agent("switch random", switch_random, 1)
     optum.add_agent('switch worst partners', switch_worst_partners, 1)
 
+    # Generate random solution to start off with
     optum.add_solution(random_pairing(all_pairings))
 
     # Run evolution model
-    optum.evolve(150000, 500, 10000)
+    optum.evolve(200000, 500, 10000)
     best_solution = optum.best_solution()
 
     compatibility_to_csv(pd.DataFrame(best_solution[1]), 'optimized_matches.csv')
