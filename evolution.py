@@ -60,15 +60,13 @@ class Evo:
             self.run_agent(pick)
 
             if i % dom == 0:
-                print(self.size())
-                print(max(self.pop.keys()))
                 self.remove_dominated()
 
             if i % status == 0:
                 self.remove_dominated()
                 print("Iteration:", i)
                 print("Population size:", self.size())
-                print(self)
+                print("Highest calculated compatibility so far: \n", self.best_solution()[0][0])
 
         # Clean up the population
         self.remove_dominated()
@@ -83,14 +81,9 @@ class Evo:
 
 
     @staticmethod
-    def _dominates(p, q):
+    def _dominates(p, q, filter_lim=-.05):
         """ p = evaluation of solution: ((obj1, score1), (obj2, score2), ... )"""
-        pscores = [score for _, score in p]
-        qscores = [score for _, score in q]
-        score_diffs = list(map(lambda x, y: y - x, pscores, qscores))
-        min_diff = min(score_diffs)
-        max_diff = max(score_diffs)
-        return min_diff >= 0.0 and max_diff > 0.0
+        return q[0][1] - p[0][1] <= filter_lim
 
     @staticmethod
     def _reduce_nds(S, p):
@@ -101,9 +94,15 @@ class Evo:
         nds = reduce(Evo._reduce_nds, self.pop.keys(), self.pop.keys())
         self.pop = {k: self.pop[k] for k in nds}
 
+    def best_solution(self):
+        """ Return best solution from population """
+        solution = max(self.pop.items(), key=lambda x: x[0][0][1])
+        print(f'Out of the {self.size()} feasible combinations of parings, here is the optimal solution: \n', solution)
+        return solution
+
     def __str__(self):
-        """ Output the solutions in the population """
-        rslt = ""
-        for eval, sol in self.pop.items():
-            rslt += str(dict(eval)) + ":\t" + str(sol) + "\n"
-        return rslt
+        """ Output the ten first solutions in the population """
+        result = ""
+        for evaluation, sol in self.pop.items()[10]:
+            result += str(dict(eval)) + ":\t" + str(sol) + "\n"
+        return result

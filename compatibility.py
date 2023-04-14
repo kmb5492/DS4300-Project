@@ -64,10 +64,10 @@ def create_tuning(responses1, responses2, weights=None):
 
     questions = list(QUESTIONS.keys())
 
-    weights[questions.index(first_factor1)] *= 2
-    weights[questions.index(first_factor2)] *= 2
-    weights[questions.index(second_factor1)] *= 1.5
-    weights[questions.index(second_factor2)] *= 1.5
+    weights[questions.index(first_factor1)] *= 3.5
+    weights[questions.index(first_factor2)] *= 3.5
+    weights[questions.index(second_factor1)] *= 2
+    weights[questions.index(second_factor2)] *= 2
 
     return weights
 
@@ -119,7 +119,7 @@ def closest_scores(compatibility_scores, n):
 # %% Evo Algorithm - Maximize Total Compatibility of Classmates
 
 def random_pairing(all_compatibility_scores):
-    """ Generate First Solution: Randomly pair our class up """
+    """ Generate First Solution: Randomly pair participants up """
     # Obtain list of all unique people
     all_people = set([pairing['person2_name'] for pairing in all_compatibility_scores]
                      + [all_compatibility_scores[0]['person1_name']])
@@ -147,7 +147,7 @@ def random_pairing(all_compatibility_scores):
 
 
 def find_pairing(name1, name2, all_scores):
-    """ Given two names, find their pairing in list of possible matches """
+    """ Given two names, find their pairing in list of all possible matches """
     for match in all_scores:
         if match['person1_name'] == name1 or match['person2_name'] == name1:
             if match['person1_name'] == name2 or match['person2_name'] == name2:
@@ -155,7 +155,7 @@ def find_pairing(name1, name2, all_scores):
 
 
 def find_worst_pairing(pairings):
-    """ Find the worst compatibility score between pairings """
+    """ Find the pairing with the lowest compatibility score lol """
     return min(pairings, key=lambda d: d.get("compatibility"))
 
 
@@ -219,15 +219,11 @@ def main():
     optum.add_solution(random_pairing(all_pairings))
 
     # Run evolution model
-    optum.evolve(100000, 500, 10000)
+    optum.evolve(150000, 500, 10000)
+    best_solution = optum.best_solution()
 
+    compatibility_to_csv(pd.DataFrame(best_solution[1]), 'optimized_matches.csv')
 
-    # x = []
-    # x.append(random_pairing(all_pairings))
-    # for i in range(1000):
-    #     x.append(switch_random(rnd.choice(x), all_pairings))
-    #     x.append(switch_worst_partners(rnd.choice(x), all_pairings))
-    # print(len(x))
 
 if __name__ == "__main__":
     main()
