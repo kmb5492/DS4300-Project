@@ -66,7 +66,7 @@ class Evo:
                 self.remove_dominated()
                 print("Iteration:", i)
                 print("Population size:", self.size())
-                print("Highest calculated compatibility so far: \n", self.best_solution()[0][0])
+                print("Highest calculated compatibility so far:\n", self.best_solution()[0][0])
 
         # Clean up the population
         self.remove_dominated()
@@ -96,9 +96,7 @@ class Evo:
 
     def best_solution(self):
         """ Return best solution from population """
-        solution = max(self.pop.items(), key=lambda x: x[0][0][1])
-        print(f'Out of the {self.size()} feasible combinations of parings, here is the optimal solution: \n', solution)
-        return solution
+        return max(self.pop.items(), key=lambda x: x[0][0][1])
 
     def __str__(self):
         """ Output the ten first solutions in the population """

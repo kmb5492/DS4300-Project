@@ -7,13 +7,14 @@ Compatibility Scoring Algorithm:
     Generate insights for each match and share results with our responders.
 """
 
-import pandas as pd
-import random as rnd
 import copy
 import os
+import pandas as pd
+import random as rnd
+from functools import reduce
+from pprint import pprint
 from pymongo import MongoClient
 from scipy.spatial import distance
-from functools import reduce
 from questions import QUESTIONS
 from evolution import Evo
 
@@ -223,9 +224,10 @@ def main():
 
     # Run evolution model
     optum.evolve(200000, 500, 10000)
-    best_solution = optum.best_solution()
+    optimal_matches = optum.best_solution()
+    pprint('Optimal matches identified... here are the results:\n', optimal_matches)
 
-    compatibility_to_csv(pd.DataFrame(best_solution[1]), 'optimized_matches.csv')
+    compatibility_to_csv(pd.DataFrame(optimal_matches[1]), 'ds_connect_matches.csv')
 
 
 if __name__ == "__main__":
