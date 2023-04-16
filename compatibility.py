@@ -223,9 +223,10 @@ def main():
     optum.add_solution(random_pairing(all_pairings))
 
     # Run evolution model
-    optum.evolve(200000, 500, 10000)
+    optum.evolve(10000, 500, 10000)
     optimal_matches = optum.best_solution()
-    pprint('Optimal matches identified... here are the results:\n', optimal_matches)
+    print('\nOptimal matches identified... here are the results:')
+    pprint(optimal_matches)
 
     compatibility_to_csv(pd.DataFrame(optimal_matches[1]), 'ds_connect_matches.csv')
 
