@@ -1,3 +1,3 @@
-# DS4300-Project
-
-Description of each file:
+# DS Connect
+## DS4300 - Final Project
+### Aayush Joshipura, Abigail Sodergren, Daniel Xu, Marley Ferguson, Mayukha Bhamidipati
